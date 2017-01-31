@@ -1,7 +1,5 @@
 
-const API_KEY = getApiKey();
 const API_URL = "http://ws.audioscrobbler.com/2.0/";
-const SERCRET = getSharedSecret();
 
 var album;
 var lastfm = false;
