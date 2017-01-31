@@ -37,12 +37,12 @@ document.addEventListener('DOMContentLoaded', function() {
   getCurrentTabUrl(function(url) {
     removePlusses(url, function(url){
 
-      if(!hasTokenCookie()){
+      if(!hasSessionCookie()){
         document.getElementById("button").innerHTML = "log in to last.fm";
       }
 
       var info = url.split("/");
-      if((info[2] != "www.last.fm" || info[3] != "music" || info[5] == undefined || info[4] == undefined) && hasTokenCookie()){
+      if((info[2] != "www.last.fm" || info[3] != "music" || info[5] == undefined || info[4] == undefined) && hasSessionCookie()){
         document.getElementById("button").innerHTML = "not a last.fm album page";
         document.getElementById("button").style.backgroundColor = "DarkGray";
         document.getElementById("button").style.cursor = "not-allowed";
