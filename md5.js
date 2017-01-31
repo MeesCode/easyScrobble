@@ -1,4 +1,4 @@
-//By Chris Lawyer
+//By CHRIS COYIER
 //https://css-tricks.com/snippets/javascript/javascript-md5/
 
 var MD5 = function (string) {
