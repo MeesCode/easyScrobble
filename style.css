@@ -1,0 +1,30 @@
+
+#info{
+  width: 250px;
+  position: relative;
+  top: 15px;
+}
+
+#album_pic{
+  float: left;
+  height: 75px;
+  width: 75px;
+  margin: 10px;
+  margin-top: 0px;
+  margin-left: 0px;
+}
+
+#button{
+  padding: 5px;
+  border-radius: 3px;
+  background-color: #B90000;
+  margin-top: 10px;
+  position: relative;
+  top: 5px;
+  color: white;
+  cursor: pointer;
+}
+
+#button:hover{
+  background-color: #D50000;
+}
