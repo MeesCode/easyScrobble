@@ -118,11 +118,12 @@ function getToken(){
   var xhr = new XMLHttpRequest();
   xhr.responseType = "json";
   var time = new Date();
+  time.setHours(time.getHours() + 1);
 
   xhr.onreadystatechange = function() {
     if (xhr.readyState == 4){
       window.open("http://www.last.fm/api/auth/?api_key=" + API_KEY + "&token=" + xhr.response.token);
-      document.cookie = "token=" + xhr.response.token + "; expires=" + (Math.round(time.getTime()/1000) + 60*60);
+      document.cookie = "token=" + xhr.response.token + "; expires=" + time.toUTCString();
     }
   }
 
