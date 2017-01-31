@@ -117,11 +117,12 @@ function getToken(){
   sig = MD5(sig);
   var xhr = new XMLHttpRequest();
   xhr.responseType = "json";
+  var time = new Date();
 
   xhr.onreadystatechange = function() {
     if (xhr.readyState == 4){
       window.open("http://www.last.fm/api/auth/?api_key=" + API_KEY + "&token=" + xhr.response.token);
-      document.cookie = "token=" + xhr.response.token + "; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+      document.cookie = "token=" + xhr.response.token + "; expires=" + (Math.round(time.getTime()/1000) + 60*60);
     }
   }
 
