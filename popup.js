@@ -32,75 +32,60 @@ function showInfo(info){
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  //document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  //document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   getCurrentTabUrl(function(url) {
     removePlusses(url, function(url){
       var info = url.split("/");
-      if(info[2] == "www.last.fm" && info[3] == "music" && info[5] != undefined && info[4] != undefined && hasSessionCookie()){
+      if(info[2] == "www.last.fm" && info[3] == "music" && info[5] != undefined && info[4] != undefined){
         loadPoppup(info);
-      } else {
-        if(!hasSessionCookie()){
-          document.getElementById("button").innerHTML = "log in to last.fm";
-        } else {
-          document.getElementById("button").innerHTML = "not a last.fm album page";
-          document.getElementById("button").style.backgroundColor = "DarkGray";
-          document.getElementById("button").style.cursor = "not-allowed";
-        }
+      } else if(hasSessionCookie() || hasTokenCookie()){
+        document.getElementById("button").innerHTML = "not a last.fm album page";
+        document.getElementById("button").style.backgroundColor = "DarkGray";
+        document.getElementById("button").style.cursor = "not-allowed";
+      }
+      if(!hasSessionCookie() && !hasTokenCookie()){
+        document.getElementById("button").innerHTML = "log in to last.fm";
       }
     });
   });
 });
 
 function loadPoppup(info){
-  if(info[2] == "www.last.fm" && info[3] == "music" && info[5] != undefined && info[4] != undefined && hasSessionCookie()){
-    lastfm = true;
-    var request = new Object();
-    request.artist = info[4];
-    request.album = info[5];
-    request.format = "json";
-    request.method = "album.getinfo";
-    var xhr = new XMLHttpRequest();
-    xhr.responseType = "json";
+  lastfm = true;
+  var request = new Object();
+  request.artist = info[4];
+  request.album = info[5];
+  request.format = "json";
+  request.method = "album.getinfo";
+  var xhr = new XMLHttpRequest();
+  xhr.responseType = "json";
 
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState == 4){
-        album = xhr.response.album;
-        showInfo(xhr.response);
-      }
-    }
-
-    var reqURL = API_URL
-      + "?method=" + request.method
-      + "&api_key=" + API_KEY
-      + "&artist=" + request.artist
-      + "&album=" + request.album
-      + "&format=" + request.format;
-    xhr.open("GET", reqURL, true);
-    xhr.send("");
-  } else {
-    if(!hasSessionCookie()){
-      document.getElementById("button").innerHTML = "log in to last.fm";
-    } else {
-      document.getElementById("button").innerHTML = "not a last.fm album page";
-      document.getElementById("button").style.backgroundColor = "DarkGray";
-      document.getElementById("button").style.cursor = "not-allowed";
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState == 4){
+      album = xhr.response.album;
+      showInfo(xhr.response);
     }
   }
+
+  var reqURL = API_URL
+    + "?method=" + request.method
+    + "&api_key=" + API_KEY
+    + "&artist=" + request.artist
+    + "&album=" + request.album
+    + "&format=" + request.format;
+  xhr.open("GET", reqURL, true);
+  xhr.send("");
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById("button").addEventListener("click", function(){
-    if(lastfm){
-      if(hasSessionCookie()){
-        scrobble();
-      } else {
-        if(!hasTokenCookie()){
-          getToken();
-        } else {
-          getSession();
-        }
-      }
+    if(!hasSessionCookie() && !hasTokenCookie()){
+      getToken();
+    } else if(!hasSessionCookie() && hasTokenCookie()){
+      getSession();
+    } else if(lastfm){
+      scrobble();
     }
   });
 });
