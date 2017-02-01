@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } else if(hasSessionCookie() || hasTokenCookie()){
         document.getElementById("button").innerHTML = "not a last.fm album page";
         document.getElementById("button").style.backgroundColor = "DarkGray";
-        document.getElementById("button").style.cursor = "not-allowed";
+        document.getElementById("button").style.cursor = "auto";
       }
       if(!hasSessionCookie() && !hasTokenCookie()){
         document.getElementById("button").innerHTML = "log in to last.fm";
@@ -158,9 +158,16 @@ function getSession(){
 function scrobble(){
   var xhr = new XMLHttpRequest();
 
-  /*xhr.onreadystatechange = function() {
-    console.log(xhr.response);
-  }*/
+  xhr.onreadystatechange = function() {
+    var response = JSON.parse(xhr.response)
+    if(response.scrobbles["@attr"].accepted != 0){
+      document.getElementById("button").innerHTML = response.scrobbles["@attr"].accepted + " tracks scrobbled";
+      document.getElementById("button").style.backgroundColor = "#00b93e";
+    } else {
+      document.getElementById("button").innerHTML = "failed to scrobble";
+    }
+    document.getElementById("button").style.cursor = "auto";
+  }
 
   var time = new Date();
   var utracks = {};
@@ -187,6 +194,7 @@ function scrobble(){
   sig = MD5(sig + SERCRET);
 
   otracks["api_sig"] = sig;
+  otracks["format"] = "json";
 
   var req = "";
   for(var i = 0; i < Object.keys(otracks).length; i++){
