@@ -3,7 +3,7 @@
 
   "name": "easyScrobble",
   "description": "Scrobble from current last.fm page",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "icons": {
     "32": "icon32.png",
     "128": "icon128.png"
