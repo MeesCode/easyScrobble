@@ -1,17 +1,23 @@
 
+body{
+  font-family: 'Open Sans', 'Lucida Grande', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+}
+
 #info{
-  width: 250px;
+  width: 350px;
   position: relative;
   top: 15px;
 }
 
 #album_pic{
   float: left;
-  height: 75px;
-  width: 75px;
+  height: 100px;
+  width: 100px;
   margin: 10px;
   margin-top: 0px;
   margin-left: 0px;
+  border-radius: 3px;
 }
 
 #button{
@@ -22,7 +28,7 @@
   position: relative;
   top: 5px;
   color: white;
-  cursor: pointer;
+  cursor: pointer !important;
   transition: all 0.5s ease;
 }
 

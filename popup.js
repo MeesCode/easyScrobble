@@ -1,210 +1,221 @@
+const API_URL = 'http://ws.audioscrobbler.com/2.0/';
+const COOKIE_LOCATION = 'https://www.last.fm/api';
 
-const API_URL = "http://ws.audioscrobbler.com/2.0/";
+let scrobbleData;
+let buttonElement;
 
-var album;
-var lastfm = false;
+let getUrl = browser.tabs.query({
+  currentWindow: true, 
+  active: true
+});
 
-function getCurrentTabUrl(callback) {
-  var queryInfo = {
-    active: true,
-    currentWindow: true
-  };
-
-  chrome.tabs.query(queryInfo, function(tabs) {
-    var tab = tabs[0];
-    var url = tab.url;
-
-    callback(url);
+let getCookie = (name => {
+  return browser.cookies.get({ 
+    url: COOKIE_LOCATION,
+    name: name
   });
-}
+});
 
-function removePlusses(url, callback){
-  url = url.replace(/\+/g, " ");
-  callback(url);
-}
+let removeCookie = (name => {
+  browser.cookies.remove({ 
+    url: COOKIE_LOCATION,
+    name: name
+  });
+});
 
-function showInfo(info){
-  var infoElement = document.getElementById("info");
-  var picElement = document.getElementById("album_pic");
-  picElement.src = info.album.image[2]["#text"];
-  infoElement.innerHTML = "Artist: " + info.album.artist
-                    + "<br/>Album: " + info.album.name;
-}
+let setCookie = ((name, value, expirationDate) => {
+  browser.cookies.set({ 
+    url: COOKIE_LOCATION,
+    name: name,
+    value: value,
+    expirationDate: expirationDate,
+    secure: true
+  });
+});
 
-document.addEventListener('DOMContentLoaded', function() {
-  //document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  //document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  getCurrentTabUrl(function(url) {
-    removePlusses(url, function(url){
-      var info = url.split("/");
-      if(info[2] == "www.last.fm" && info[3] == "music" && info[5] != undefined && info[4] != undefined){
-        loadPoppup(info);
-      } else if(hasSessionCookie() || hasTokenCookie()){
-        document.getElementById("button").innerHTML = "not a last.fm album page";
-        document.getElementById("button").style.backgroundColor = "DarkGray";
-        document.getElementById("button").style.cursor = "auto";
-      }
-      if(!hasSessionCookie() && !hasTokenCookie()){
-        document.getElementById("button").innerHTML = "log in to last.fm";
+document.addEventListener('DOMContentLoaded', () => {
+
+  buttonElement = document.getElementById('button');
+
+  Promise.all([getUrl, getCookie('easyToken'), getCookie('easySession')]).then(values => {
+    let url = values[0][0].url;
+    let token = (values[1]) ? values[1].value : null;
+    let session = (values[2]) ? values[2].value : null;
+    let info = url.replace(/\+/g, ' ').split('/');
+
+    let album_page = info[2] == 'www.last.fm' && info[3] == 'music' && info[5] != undefined && info[4] != undefined && info[6] == undefined;
+    let song_page = info[2] == 'www.last.fm' && info[3] == 'music' && info[5] != undefined && info[4] != undefined && info[6] != undefined && info[7] == undefined;
+
+    if(album_page) buttonElement.innerHTML = 'scrobble this album';
+    if(song_page) buttonElement.innerHTML = 'scrobble this song';
+
+    if(album_page || song_page){
+      loadPoppup(info, album_page, song_page);
+    } else {
+      buttonElement.innerHTML = 'can\'t scrobble from this page';
+      buttonElement.style.backgroundColor = 'DarkGray';
+      buttonElement.style.cursor = 'auto';
+    } 
+    if(!(token || session)) {
+      buttonElement.innerHTML = 'log in to last.fm';
+    }
+
+    buttonElement.addEventListener('click', () => {
+      if(!session && !token){
+        getToken();
+      } else if(!session && token){
+        getSession();
+      } else if(album_page || song_page){
+        scrobble();
       }
     });
   });
 });
 
-function loadPoppup(info){
-  lastfm = true;
-  var request = new Object();
-  request.artist = info[4];
-  request.album = info[5];
-  request.format = "json";
-  request.method = "album.getinfo";
-  var xhr = new XMLHttpRequest();
-  xhr.responseType = "json";
-
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState == 4){
-      album = xhr.response.album;
-      showInfo(xhr.response);
-    }
+function showInfo(){
+  let infoElement = document.getElementById('info');
+  let picElement = document.getElementById('album_pic');
+  picElement.src = (scrobbleData.album) ? scrobbleData.album.image[2]['#text'] : scrobbleData.track.album.image[2]['#text'];
+  
+  if(scrobbleData.album) {
+    infoElement.innerHTML = `Artist: ${scrobbleData.album.artist} <br/>Album: ${scrobbleData.album.name}`;
+  } else {
+    infoElement.innerHTML = `Artist: ${scrobbleData.track.artist.name} <br/>Album: ${scrobbleData.track.album.title} <br/>Track: ${scrobbleData.track.name}`;
   }
-
-  var reqURL = API_URL
-    + "?method=" + request.method
-    + "&api_key=" + API_KEY
-    + "&artist=" + request.artist
-    + "&album=" + request.album
-    + "&format=" + request.format;
-  xhr.open("GET", reqURL, true);
-  xhr.send("");
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById("button").addEventListener("click", function(){
-    if(!hasSessionCookie() && !hasTokenCookie()){
-      getToken();
-    } else if(!hasSessionCookie() && hasTokenCookie()){
-      getSession();
-    } else if(lastfm){
-      scrobble();
+function loadPoppup(info, album_page){
+  let request = new Object();
+  request.artist = info[4].replace('&', '%26');
+  request.album = info[5].replace('&', '%26');
+  request.track = (info[6]) ? info[6].replace('&', '%26') : null;
+  let reqURL;
+
+  if(album_page){
+    reqURL = `${API_URL}?method=album.getinfo&api_key=${API_KEY}&artist=${request.artist}&album=${request.album}&format=json`;
+  } else { 
+    reqURL = `${API_URL}?method=track.getinfo&api_key=${API_KEY}&artist=${request.artist}&track=${request.track}&format=json`;
+  }
+
+  fetch(reqURL).then(response => {
+    if(response.status == 200){
+      response.json().then(data => {
+        scrobbleData = data;
+        showInfo();
+      });
     }
   });
-});
-
-function hasTokenCookie(){
-  if(getCookie("token") == undefined){
-    return false;
-  }
-  return true;
-}
-
-function hasSessionCookie(){
-  if(getCookie("session") == undefined){
-    return false;
-  }
-  return true;
-}
-
-function getCookie(name) {
-  var value = "; " + document.cookie;
-  var parts = value.split("; " + name + "=");
-  if (parts.length == 2) return parts.pop().split(";").shift();
 }
 
 function getToken(){
-  var sig = "api_key" + API_KEY + "method" + "auth.getToken" + "token" + SERCRET;
+  let sig = `api_key${API_KEY}methodauth.getTokentoken${SERCRET}`;
   sig = MD5(sig);
-  var xhr = new XMLHttpRequest();
-  xhr.responseType = "json";
-  var time = new Date();
-  time.setHours(time.getHours() + 1);
 
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState == 4){
-      window.open("http://www.last.fm/api/auth/?api_key=" + API_KEY + "&token=" + xhr.response.token);
-      document.cookie = "token=" + xhr.response.token + "; expires=" + time.toUTCString();
-    }
-  }
+  let reqURL = `${API_URL}?method=auth.getToken&api_key=${API_KEY}&api_sig=${sig}&format=json`;
 
-  var reqURL = API_URL + "?method=auth.getToken&api_key=" + API_KEY + "&api_sig=" + sig + "&format=json";
-
-  xhr.open("GET", reqURL, true);
-  xhr.send("");
+  fetch(reqURL).then(response => {
+    response.json().then(data => {
+      if (response.status == 200){
+        browser.tabs.create({url: 'https://www.last.fm/api/auth/?api_key=' + API_KEY + '&token=' + data.token});
+        setCookie('easyToken', data.token);
+      }
+    });
+  });
 }
 
 function getSession(){
+  getCookie('easyToken').then(tokenCookie => {
 
-  var token = getCookie("token");
+    let token = tokenCookie.value;
 
-  var xhr = new XMLHttpRequest();
-  xhr.responseType = "json";
+    let sig = `api_key${API_KEY}methodauth.getSessiontoken${token}${SERCRET}`;
+    sig = MD5(sig);
 
-  var sig = "api_key" + API_KEY + "method" + "auth.getSession" + "token" + token + SERCRET;
-  sig = MD5(sig);
+    let reqURL = `${API_URL}?method=auth.getSession&token=${token}&api_key=${API_KEY}&api_sig=${sig}&format=json`;
 
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState == 4){
-      document.cookie = "session=" + xhr.response.session.key + "; expires=Fri, 31 Dec 9999 23:59:59 GMT";
-      scrobble();
-    }
-  }
-
-  var reqURL = API_URL + "?method=auth.getSession&token=" + token + "&api_key=" + API_KEY + "&api_sig=" + sig + "&format=json";
-
-  xhr.open("GET", reqURL, true);
-  xhr.send("");
-
+    fetch(reqURL).then(response => {
+      if(response.status == 403){
+        removeCookie('easyToken');
+        buttonElement.innerHTML = 'close and try again';
+        return;
+      }
+      if (response.status == 200){
+        response.json().then(data => {
+          setCookie('easySession', data.session.key, 2147483647);
+          scrobble();
+        });
+      }
+    });
+  });
 }
 
 function scrobble(){
-  var xhr = new XMLHttpRequest();
+  getCookie('easySession').then(sessionCookie => {
+    let session = sessionCookie.value;
 
-  xhr.onreadystatechange = function() {
-    var response = JSON.parse(xhr.response)
-    if(response.scrobbles["@attr"].accepted != 0){
-      document.getElementById("button").innerHTML = response.scrobbles["@attr"].accepted + " tracks scrobbled";
-      document.getElementById("button").style.backgroundColor = "#00b93e";
+    let time = new Date();
+    let utracks = new Object();
+    
+    if(scrobbleData.album){
+      for(let i = 0; i < scrobbleData.album.tracks.track.length; i++){
+        utracks[`artist[${i}]`] = scrobbleData.album.tracks.track[i].artist.name;
+        utracks[`album[${i}]`] = scrobbleData.album.name;
+        utracks[`track[${i}]`] = scrobbleData.album.tracks.track[i].name;
+        utracks[`timestamp[${i}]`] = Math.round(time.getTime()/1000);
+      }
     } else {
-      document.getElementById("button").innerHTML = "failed to scrobble";
+      utracks[`artist[0]`] = scrobbleData.track.artist.name;
+      utracks[`album[0]`] = scrobbleData.track.album.title;
+      utracks[`track[0]`] = scrobbleData.track.name;
+      utracks[`timestamp[0]`] = Math.round(time.getTime()/1000);
     }
-    document.getElementById("button").style.cursor = "auto";
-  }
 
-  var time = new Date();
-  var utracks = {};
-  for(var i = 0; i < album.tracks.track.length; i++){
-    utracks["artist[" + i + "]"] = album.tracks.track[i].artist.name;
-    utracks["album[" + i + "]"] = album.name;
-    utracks["track[" + i + "]"] = album.tracks.track[i].name;
-    utracks["timestamp[" + i + "]"] = Math.round(time.getTime()/1000);
-  }
+    utracks['sk'] = session;
+    utracks['api_key'] = API_KEY;
+    utracks['method'] = 'track.scrobble';
 
-  utracks["sk"] = getCookie("session");
-  utracks["api_key"] = API_KEY;
-  utracks["method"] = "track.scrobble";
+    let otracks = new Object();
+    Object.keys(utracks).sort().forEach((key) => {
+      otracks[key] = utracks[key];
+    });
 
-  otracks = {};
-  Object.keys(utracks).sort().forEach(function(key) {
-    otracks[key] = utracks[key];
+    let sig = '';
+    for(let i = 0; i < Object.keys(otracks).length; i++){
+      sig += Object.keys(otracks)[i] + otracks[Object.keys(otracks)[i]];
+    }
+    sig = MD5(sig + SERCRET);
+
+    otracks['api_sig'] = sig;
+    otracks['format'] = 'json';
+
+    let req = '';
+    for(let i = 0; i < Object.keys(otracks).length; i++){
+      if(i > 0){
+        req += '&';
+      }
+      req += Object.keys(otracks)[i] + '=' + encodeURIComponent(otracks[Object.keys(otracks)[i]]);
+    }
+
+    fetch(API_URL, {
+      method: 'post',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+      },
+      body: req
+    }).then(response => {
+      if(response.status != 200){
+        buttonElement.innerHTML = 'failed to scrobble';
+        return;
+      }
+      response.json().then(data => {
+        let amount = data.scrobbles['@attr'].accepted;
+        if(amount != 0){
+          buttonElement.innerHTML = `${amount} track${(amount) > 1 ? 's' : ''} scrobbled`;
+          buttonElement.style.backgroundColor = '#00b93e';
+        } else {
+          buttonElement.innerHTML = 'no songs found (blame last.fm)';
+        }
+      });
+    });
   });
-
-  var sig = "";
-  for(var i = 0; i < Object.keys(otracks).length; i++){
-    sig += Object.keys(otracks)[i] + otracks[Object.keys(otracks)[i]];
-  }
-  sig = MD5(sig + SERCRET);
-
-  otracks["api_sig"] = sig;
-  otracks["format"] = "json";
-
-  var req = "";
-  for(var i = 0; i < Object.keys(otracks).length; i++){
-    if(i > 0){
-      req += "&";
-    }
-    req += Object.keys(otracks)[i] + "=" + encodeURIComponent(otracks[Object.keys(otracks)[i]]);
-  }
-
-  xhr.open("POST", API_URL, true);
-  xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
-  xhr.send(req);
 }

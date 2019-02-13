@@ -1,16 +1,19 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
     <title>easyScrobble</title>
-    <script src="MD5.js"></script>
+    <script src="browser-polyfill.js"></script>
+    <script src="md5.js"></script>
     <script src="credentials.js"></script>
     <script src="popup.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="utf-8"/>
   </head>
   <body>
-    <a id="button">Scrobble this album</a>
-    <img id="album_pic" src="defaultIcon.png"/>
-    <div id="info">Artist: undefined<br/>Album: undefined</div>
-    <iframe name="hiddenFrame" width="0" height="0" border="0" style="display: none;"></iframe>
+    <div id="content"></div>
+      <a id="button">can't scrobble from this page</a>
+      <img id="album_pic" src="defaultIcon.png"/>
+      <div id="info">Artist: not found<br/>Album: not found</div>
+    </div>
   </body>
 </html>
